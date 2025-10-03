@@ -1,0 +1,289 @@
+import os
+import time
+import torch
+from diffusers import DiffusionPipeline, StableDiffusionPipeline
+import cv2
+import numpy as np
+from PIL import Image
+
+class TextToVideoModel:
+    def __init__(self):
+        self.model_name = "Text-to-Video"
+        self.model_type = "text-to-video"
+        self.initialized = False
+        self.output_dir = "output_videos"
+        self.pipeline = None
+        
+    def get_model_type(self):
+        return self.model_type
+        
+    def initialize(self):
+        """Initialize with a more powerful model"""
+        print("🔧 Initializing Text-to-Video Model...")
+        
+        try:
+            os.makedirs(self.output_dir, exist_ok=True)
+            
+            print("🔄 Loading powerful text-to-video model...")
+            
+            # Try to load a proper video generation model
+            try:
+                # Use a good text-to-video model
+                self.pipeline = DiffusionPipeline.from_pretrained(
+                    "damo-vilab/text-to-video-ms-1.7b",
+                    torch_dtype=torch.float16,
+                    variant="fp16",
+                    trust_remote_code=True
+                )
+                print("✅ Loaded: Text-to-Video-MS-1.7B")
+                self.model_type_loaded = "video"
+                
+            except Exception as e:
+                print(f"⚠️ Video model failed, using powerful image model: {e}")
+                # Fallback to a very good image model
+                self.pipeline = StableDiffusionPipeline.from_pretrained(
+                    "stabilityai/stable-diffusion-2-1",
+                    torch_dtype=torch.float16,
+                    safety_checker=None,
+                    requires_safety_checker=False,
+                )
+                print("✅ Loaded: Stable Diffusion 2.1")
+                self.model_type_loaded = "image"
+            
+            # Move to GPU if available
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            self.pipeline = self.pipeline.to(device)
+            
+            # Enable memory efficient attention if available
+            if hasattr(self.pipeline, "enable_attention_slicing"):
+                self.pipeline.enable_attention_slicing()
+            
+            self.initialized = True
+            print("✅ Text-to-Video Model initialized successfully!")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Model loading failed: {e}")
+            return False
+            
+    def process_input(self, text_input):
+        """Generate video using powerful AI model"""
+        if not self.initialized:
+            return {'success': False, 'error': 'Model not initialized'}
+            
+        print(f"🎯 Generating video for: {text_input}")
+        
+        try:
+            if hasattr(self, 'model_type_loaded') and self.model_type_loaded == "video":
+                # Use actual video generation
+                return self._generate_real_video(text_input)
+            else:
+                # Use high-quality image generation with better animation
+                return self._generate_high_quality_video(text_input)
+                
+        except Exception as e:
+            error_msg = f"AI generation failed: {str(e)}"
+            print(f"❌ {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg
+            }
+            
+    def _generate_real_video(self, text_input):
+        """Generate actual video frames using AI"""
+        print("🎬 Generating real video with AI...")
+        
+        # Generate video frames
+        video_frames = self.pipeline(
+            text_input,
+            num_inference_steps=25,
+            num_frames=16,  # Generate 16 frames
+            height=256,
+            width=256,
+        ).frames
+        
+        # Convert to video file
+        video_path = self._save_video_frames(video_frames, text_input)
+        
+        return {
+            'success': True,
+            'data': {
+                'input_text': text_input,
+                'video_file': os.path.basename(video_path),
+                'model_used': 'Text-to-Video-MS-1.7B',
+                'resolution': '256x256',
+                'frames_generated': 16,
+                'ai_generated': True,
+                'real_video': True
+            },
+            'visualization': {
+                'type': 'video',
+                'file_path': video_path,
+                'description': f'AI-generated video: "{text_input}"'
+            }
+        }
+        
+    def _generate_high_quality_video(self, text_input):
+        """Generate high-quality video from AI images"""
+        print("🖼️ Generating high-quality AI images...")
+        
+        # Generate multiple related images
+        base_prompt = text_input
+        variations = [
+            f"{base_prompt}, wide shot",
+            f"{base_prompt}, close up shot", 
+            f"{base_prompt}, different angle",
+            f"{base_prompt}, detailed view"
+        ]
+        
+        generated_images = []
+        for i, prompt in enumerate(variations):
+            print(f"🖼️ Generating image {i+1}/4...")
+            image = self.pipeline(
+                prompt,
+                num_inference_steps=30,
+                guidance_scale=7.5
+            ).images[0]
+            generated_images.append(image)
+            
+        # Create smooth video from multiple AI images
+        video_path = self._create_smooth_video(generated_images, text_input)
+        
+        return {
+            'success': True,
+            'data': {
+                'input_text': text_input,
+                'video_file': os.path.basename(video_path),
+                'model_used': 'Stable Diffusion 2.1',
+                'resolution': '512x512',
+                'images_generated': 4,
+                'ai_generated': True,
+                'quality': 'high'
+            },
+            'visualization': {
+                'type': 'video',
+                'file_path': video_path,
+                'description': f'High-quality AI video: "{text_input}"'
+            }
+        }
+        
+    def _create_smooth_video(self, images, text_input):
+        """Create smooth video transition between multiple AI images"""
+        timestamp = int(time.time())
+        output_path = os.path.join(self.output_dir, f"hq_video_{timestamp}.mp4")
+        
+        width, height = 512, 512
+        fps = 24
+        duration_per_image = 2  # seconds
+        total_frames = fps * duration_per_image * len(images)
+        
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+        
+        print("🎬 Creating smooth video transitions...")
+        
+        # Convert PIL images to numpy
+        np_images = [np.array(img.convert('RGB')) for img in images]
+        
+        frame_count = 0
+        for i in range(len(np_images)):
+            current_img = np_images[i]
+            next_img = np_images[(i + 1) % len(np_images)]
+            
+            # Create smooth transition between current and next image
+            for frame_idx in range(fps * duration_per_image):
+                if i == len(np_images) - 1 and frame_idx > fps * duration_per_image // 2:
+                    # Loop back to first image
+                    next_img = np_images[0]
+                
+                # Calculate blend ratio for smooth transition
+                blend_ratio = frame_idx / (fps * duration_per_image)
+                
+                if frame_idx < fps * duration_per_image - 10:
+                    # Show current image
+                    frame = current_img.copy()
+                else:
+                    # Smooth transition to next image
+                    transition_progress = (frame_idx - (fps * duration_per_image - 10)) / 10
+                    frame = cv2.addWeighted(
+                        current_img, 1 - transition_progress,
+                        next_img, transition_progress, 0
+                    )
+                
+                # Add professional text overlay
+                frame = self._add_professional_overlay(frame, text_input, frame_count)
+                
+                # Convert to BGR and write
+                frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                out.write(frame_bgr)
+                frame_count += 1
+        
+        out.release()
+        print(f"✅ High-quality video saved: {output_path}")
+        return output_path
+        
+    def _save_video_frames(self, frames, text_input):
+        """Save generated video frames as MP4"""
+        timestamp = int(time.time())
+        output_path = os.path.join(self.output_dir, f"real_ai_video_{timestamp}.mp4")
+        
+        if not frames or len(frames) == 0:
+            raise ValueError("No frames generated")
+            
+        height, width = frames[0].shape[:2]
+        fps = 8
+        
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+        
+        for i, frame in enumerate(frames):
+            # Ensure frame is in correct format
+            if frame.dtype != np.uint8:
+                frame = (frame * 255).astype(np.uint8)
+                
+            if frame.shape[-1] == 3:  # RGB
+                frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            else:
+                frame_bgr = frame
+                
+            out.write(frame_bgr)
+        
+        out.release()
+        return output_path
+        
+    def _add_professional_overlay(self, frame, text, frame_num):
+        """Add professional-looking text overlay"""
+        result = frame.copy()
+        
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.8
+        thickness = 2
+        
+        # Main title
+        title = f"AI Generated: {text}"
+        title_size = cv2.getTextSize(title, font, font_scale, thickness)[0]
+        title_x = (frame.shape[1] - title_size[0]) // 2
+        title_y = 40
+        
+        # Draw semi-transparent background for title
+        overlay = result.copy()
+        cv2.rectangle(overlay, 
+                     (title_x - 15, title_y - title_size[1] - 10),
+                     (title_x + title_size[0] + 15, title_y + 10),
+                     (0, 0, 0), -1)
+        cv2.addWeighted(overlay, 0.6, result, 0.4, 0, result)
+        
+        # Draw title
+        cv2.putText(result, title, (title_x, title_y), font, font_scale, 
+                   (255, 255, 255), thickness, cv2.LINE_AA)
+        
+        # Footer with model info
+        footer = "Generated with Hugging Face AI"
+        footer_size = cv2.getTextSize(footer, font, 0.5, 1)[0]
+        footer_x = (frame.shape[1] - footer_size[0]) // 2
+        footer_y = frame.shape[0] - 20
+        
+        cv2.putText(result, footer, (footer_x, footer_y), font, 0.5, 
+                   (200, 200, 200), 1, cv2.LINE_AA)
+        
+        return result

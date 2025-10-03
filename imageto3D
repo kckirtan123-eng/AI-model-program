@@ -1,0 +1,274 @@
+import os
+import time
+import torch
+import numpy as np
+from PIL import Image
+import cv2
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from transformers import DPTImageProcessor, DPTForDepthEstimation
+from scipy import ndimage
+
+class ImageTo3DModel:
+    def __init__(self):
+        self.model_name = "Image-to-3D"
+        self.model_type = "image-to-3d"
+        self.initialized = False
+        self.output_dir = "output_3d"
+        self.processor = None
+        self.model = None
+        
+    def get_model_type(self):
+        return self.model_type
+        
+    def initialize(self):
+        """Initialize with powerful DPT depth estimation"""
+        print("🔧 Initializing Image-to-3D Model...")
+        
+        try:
+            os.makedirs(self.output_dir, exist_ok=True)
+            
+            print("🔄 Loading DPT Large depth estimation model...")
+            
+            # Load the powerful DPT model
+            self.processor = DPTImageProcessor.from_pretrained("Intel/dpt-large")
+            self.model = DPTForDepthEstimation.from_pretrained("Intel/dpt-large")
+            
+            # Move to GPU if available
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            self.model = self.model.to(device)
+            
+            self.initialized = True
+            print("✅ Image-to-3D Model initialized successfully!")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Model loading failed: {e}")
+            return False
+            
+    def process_input(self, image_path):
+        """Generate high-quality 3D reconstruction"""
+        if not self.initialized:
+            return {'success': False, 'error': 'Model not initialized'}
+            
+        print(f"🎯 Processing 3D reconstruction for: {image_path}")
+        
+        try:
+            # Generate high-quality depth map
+            depth_map, original_image = self._generate_high_quality_depth(image_path)
+            
+            # Generate detailed point cloud
+            point_cloud = self._generate_detailed_pointcloud(depth_map, original_image)
+            
+            # Create multiple visualizations
+            visualization_path = self._create_comprehensive_visualization(
+                image_path, depth_map, point_cloud, original_image
+            )
+            
+            return {
+                'success': True,
+                'data': {
+                    'input_file': os.path.basename(image_path),
+                    'model_used': 'DPT-Large Depth Estimation',
+                    'depth_map_resolution': f"{depth_map.shape[1]}x{depth_map.shape[0]}",
+                    'point_cloud_points': len(point_cloud['points']),
+                    'ai_generated': True,
+                    'quality': 'high'
+                },
+                'visualization': {
+                    'type': '3d_reconstruction',
+                    'file_path': visualization_path,
+                    'description': 'High-quality 3D reconstruction with AI depth estimation'
+                },
+                'depth_map': depth_map,
+                'point_cloud': point_cloud
+            }
+            
+        except Exception as e:
+            error_msg = f"3D reconstruction failed: {str(e)}"
+            print(f"❌ {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg
+            }
+         
+    def _generate_high_quality_depth(self, image_path):
+        """Generate high-quality depth map using DPT"""
+        print("🗺️ Generating high-quality depth map...")
+        
+        # Load and preprocess image
+        image = Image.open(image_path)
+        original_size = image.size
+        
+        # Resize for model (maintain aspect ratio)
+        max_size = 512  # Increased for better quality
+        image.thumbnail((max_size, max_size))
+        
+        # Prepare for model
+        inputs = self.processor(images=image, return_tensors="pt")
+        
+        # Move to device
+        device = next(self.model.parameters()).device
+        inputs = {k: v.to(device) for k, v in inputs.items()}
+        
+        # Predict depth
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+            predicted_depth = outputs.predicted_depth
+        
+        # Interpolate to original size
+        prediction = torch.nn.functional.interpolate(
+            predicted_depth.unsqueeze(1),
+            size=original_size[::-1],  # (height, width)
+            mode="bicubic",
+            align_corners=False,
+        )
+        
+        # Convert to numpy and process
+        depth = prediction.squeeze().cpu().numpy()
+        
+        # Normalize and enhance
+        depth_normalized = (depth - depth.min()) / (depth.max() - depth.min())
+        
+        # Apply smoothing for better 3D
+        depth_smoothed = ndimage.gaussian_filter(depth_normalized, sigma=1.5)
+        
+        # Enhance contrast
+        depth_enhanced = np.power(depth_smoothed, 0.8)  # Gamma correction
+        
+        # Convert to 8-bit for visualization
+        depth_visual = (depth_enhanced * 255).astype(np.uint8)
+        
+        print("✅ High-quality depth map generated!")
+        return depth_visual, image
+        
+    def _generate_detailed_pointcloud(self, depth_map, image):
+        """Generate detailed point cloud from depth map"""
+        print("☁️ Generating detailed point cloud...")
+        
+        height, width = depth_map.shape
+        image_array = np.array(image.resize((width, height)))
+        
+        points = []
+        colors = []
+        
+        # Use every 2nd pixel for detailed point cloud
+        step = 2
+        for y in range(0, height, step):
+            for x in range(0, width, step):
+                depth = depth_map[y, x] / 255.0
+                
+                # Skip invalid depths and background
+                if depth < 0.15 or depth > 0.95:
+                    continue
+                    
+                # Convert to 3D coordinates (perspective projection)
+                point_x = (x - width/2) / width * 2.0
+                point_y = (y - height/2) / height * 2.0
+                point_z = depth * 4.0  # Increased scale for better depth
+                
+                points.append([point_x, point_y, point_z])
+                
+                # Get color with saturation enhancement
+                if len(image_array.shape) == 3:
+                    color = image_array[y, x] / 255.0
+                    colors.append(color)
+                else:
+                    color = [image_array[y, x] / 255.0] * 3
+                    colors.append(color)
+        
+        print(f"✅ Generated {len(points)} high-quality 3D points")
+        return {
+            'points': np.array(points),
+            'colors': np.array(colors)
+        }
+        
+    def _create_comprehensive_visualization(self, image_path, depth_map, point_cloud, original_image):
+        """Create comprehensive 3D visualization"""
+        timestamp = int(time.time())
+        output_path = os.path.join(self.output_dir, f"3d_reconstruction_{timestamp}.png")
+        
+        # Create detailed figure
+        fig = plt.figure(figsize=(20, 12))
+        
+        # Original image
+        ax1 = fig.add_subplot(231)
+        ax1.imshow(original_image)
+        ax1.set_title('Original Image', fontsize=12, fontweight='bold', pad=10)
+        ax1.axis('off')
+        
+        # Depth map
+        ax2 = fig.add_subplot(232)
+        depth_display = ax2.imshow(depth_map, cmap='viridis')
+        ax2.set_title('AI Depth Map (DPT-Large)', fontsize=12, fontweight='bold', pad=10)
+        ax2.axis('off')
+        plt.colorbar(depth_display, ax=ax2, fraction=0.046, pad=0.04)
+        
+        # 3D point cloud - front view
+        ax3 = fig.add_subplot(233, projection='3d')
+        self._plot_pointcloud(ax3, point_cloud, 'Front View')
+        
+        # 3D point cloud - top view
+        ax4 = fig.add_subplot(234, projection='3d')
+        self._plot_pointcloud(ax4, point_cloud, 'Top View')
+        ax4.view_init(elev=90, azim=0)
+        
+        # 3D point cloud - side view
+        ax5 = fig.add_subplot(235, projection='3d')
+        self._plot_pointcloud(ax5, point_cloud, 'Side View')
+        ax5.view_init(elev=0, azim=0)
+        
+        # 3D point cloud - perspective view
+        ax6 = fig.add_subplot(236, projection='3d')
+        self._plot_pointcloud(ax6, point_cloud, 'Perspective View')
+        ax6.view_init(elev=30, azim=45)
+        
+        plt.suptitle('High-Quality 3D Reconstruction Analysis', fontsize=16, fontweight='bold', y=0.98)
+        plt.tight_layout()
+        plt.savefig(output_path, dpi=150, bbox_inches='tight', facecolor='white')
+        plt.close()
+        
+        print(f"✅ Comprehensive visualization saved: {output_path}")
+        return output_path
+        
+       
+    def _plot_pointcloud(self, ax, point_cloud, title):
+        """Plot point cloud in 3D"""
+        if point_cloud and 'points' in point_cloud:
+            points = point_cloud['points']
+            colors = point_cloud['colors']
+            
+            # Sample for clarity while maintaining detail
+            if len(points) > 8000:
+                indices = np.random.choice(len(points), 8000, replace=False)
+                points = points[indices]
+                colors = colors[indices]
+            
+            scatter = ax.scatter3D(
+                points[:, 0], points[:, 1], points[:, 2],
+                c=colors, s=3, alpha=0.8, depthshade=True, marker='o'
+            )
+            
+            ax.set_title(title, fontsize=10, fontweight='bold')
+            ax.set_xlabel('X')
+            ax.set_ylabel('Y')
+            ax.set_zlabel('Depth')
+            
+            # Set equal aspect ratio
+            self._set_axes_equal(ax)
+            
+    def _set_axes_equal(self, ax):
+        """Set equal aspect ratio for 3D plot"""
+        x_limits = ax.get_xlim3d()
+        y_limits = ax.get_ylim3d()
+        z_limits = ax.get_zlim3d()
+        
+        x_range = abs(x_limits[1] - x_limits[0])
+        y_range = abs(y_limits[1] - y_limits[0])
+        z_range = abs(z_limits[1] - z_limits[0])
+        
+        max_range = max(x_range, y_range, z_range)
+        
+        ax.set_xlim3d([-max_range/2, max_range/2])
+        ax.set_ylim3d([-max_range/2, max_range/2])
+        ax.set_zlim3d([-max_range/2, max_range/2])
