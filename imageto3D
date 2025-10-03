@@ -1,0 +1,94 @@
+import os
+import time
+import torch
+import numpy as np
+from PIL import Image
+import cv2
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from transformers import DPTImageProcessor, DPTForDepthEstimation
+from scipy import ndimage
+
+class ImageTo3DModel:
+    def __init__(self):
+        self.model_name = "Image-to-3D"
+        self.model_type = "image-to-3d"
+        self.initialized = False
+        self.output_dir = "output_3d"
+        self.processor = None
+        self.model = None
+        
+    def get_model_type(self):
+        return self.model_type
+        
+    def initialize(self):
+        """Initialize with powerful DPT depth estimation"""
+        print("🔧 Initializing Image-to-3D Model...")
+        
+        try:
+            os.makedirs(self.output_dir, exist_ok=True)
+            
+            print("🔄 Loading DPT Large depth estimation model...")
+            
+            # Load the powerful DPT model
+            self.processor = DPTImageProcessor.from_pretrained("Intel/dpt-large")
+            self.model = DPTForDepthEstimation.from_pretrained("Intel/dpt-large")
+            
+            # Move to GPU if available
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            self.model = self.model.to(device)
+            
+            self.initialized = True
+            print("✅ Image-to-3D Model initialized successfully!")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Model loading failed: {e}")
+            return False
+            
+    def process_input(self, image_path):
+        """Generate high-quality 3D reconstruction"""
+        if not self.initialized:
+            return {'success': False, 'error': 'Model not initialized'}
+            
+        print(f"🎯 Processing 3D reconstruction for: {image_path}")
+        
+        try:
+            # Generate high-quality depth map
+            depth_map, original_image = self._generate_high_quality_depth(image_path)
+            
+            # Generate detailed point cloud
+            point_cloud = self._generate_detailed_pointcloud(depth_map, original_image)
+            
+            # Create multiple visualizations
+            visualization_path = self._create_comprehensive_visualization(
+                image_path, depth_map, point_cloud, original_image
+            )
+            
+            return {
+                'success': True,
+                'data': {
+                    'input_file': os.path.basename(image_path),
+                    'model_used': 'DPT-Large Depth Estimation',
+                    'depth_map_resolution': f"{depth_map.shape[1]}x{depth_map.shape[0]}",
+                    'point_cloud_points': len(point_cloud['points']),
+                    'ai_generated': True,
+                    'quality': 'high'
+                },
+                'visualization': {
+                    'type': '3d_reconstruction',
+                    'file_path': visualization_path,
+                    'description': 'High-quality 3D reconstruction with AI depth estimation'
+                },
+                'depth_map': depth_map,
+                'point_cloud': point_cloud
+            }
+            
+        except Exception as e:
+            error_msg = f"3D reconstruction failed: {str(e)}"
+            print(f"❌ {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg
+            }
+         
