@@ -1,0 +1,125 @@
+import os
+import time
+import torch
+from diffusers import DiffusionPipeline, StableDiffusionPipeline
+import cv2
+import numpy as np
+from PIL import Image
+
+class TextToVideoModel:
+    def __init__(self):
+        self.model_name = "Text-to-Video"
+        self.model_type = "text-to-video"
+        self.initialized = False
+        self.output_dir = "output_videos"
+        self.pipeline = None
+        
+    def get_model_type(self):
+        return self.model_type
+        
+    def initialize(self):
+        """Initialize with a more powerful model"""
+        print("🔧 Initializing Text-to-Video Model...")
+        
+        try:
+            os.makedirs(self.output_dir, exist_ok=True)
+            
+            print("🔄 Loading powerful text-to-video model...")
+            
+            # Try to load a proper video generation model
+            try:
+                # Use a good text-to-video model
+                self.pipeline = DiffusionPipeline.from_pretrained(
+                    "damo-vilab/text-to-video-ms-1.7b",
+                    torch_dtype=torch.float16,
+                    variant="fp16",
+                    trust_remote_code=True
+                )
+                print("✅ Loaded: Text-to-Video-MS-1.7B")
+                self.model_type_loaded = "video"
+                
+            except Exception as e:
+                print(f"⚠️ Video model failed, using powerful image model: {e}")
+                # Fallback to a very good image model
+                self.pipeline = StableDiffusionPipeline.from_pretrained(
+                    "stabilityai/stable-diffusion-2-1",
+                    torch_dtype=torch.float16,
+                    safety_checker=None,
+                    requires_safety_checker=False,
+                )
+                print("✅ Loaded: Stable Diffusion 2.1")
+                self.model_type_loaded = "image"
+            
+            # Move to GPU if available
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            self.pipeline = self.pipeline.to(device)
+            
+            # Enable memory efficient attention if available
+            if hasattr(self.pipeline, "enable_attention_slicing"):
+                self.pipeline.enable_attention_slicing()
+            
+            self.initialized = True
+            print("✅ Text-to-Video Model initialized successfully!")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Model loading failed: {e}")
+            return False
+            
+    def process_input(self, text_input):
+        """Generate video using powerful AI model"""
+        if not self.initialized:
+            return {'success': False, 'error': 'Model not initialized'}
+            
+        print(f"🎯 Generating video for: {text_input}")
+        
+        try:
+            if hasattr(self, 'model_type_loaded') and self.model_type_loaded == "video":
+                # Use actual video generation
+                return self._generate_real_video(text_input)
+            else:
+                # Use high-quality image generation with better animation
+                return self._generate_high_quality_video(text_input)
+                
+        except Exception as e:
+            error_msg = f"AI generation failed: {str(e)}"
+            print(f"❌ {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg
+            }
+            
+    def _generate_real_video(self, text_input):
+        """Generate actual video frames using AI"""
+        print("🎬 Generating real video with AI...")
+        
+        # Generate video frames
+        video_frames = self.pipeline(
+            text_input,
+            num_inference_steps=25,
+            num_frames=16,  # Generate 16 frames
+            height=256,
+            width=256,
+        ).frames
+        
+        # Convert to video file
+        video_path = self._save_video_frames(video_frames, text_input)
+        
+        return {
+            'success': True,
+            'data': {
+                'input_text': text_input,
+                'video_file': os.path.basename(video_path),
+                'model_used': 'Text-to-Video-MS-1.7B',
+                'resolution': '256x256',
+                'frames_generated': 16,
+                'ai_generated': True,
+                'real_video': True
+            },
+            'visualization': {
+                'type': 'video',
+                'file_path': video_path,
+                'description': f'AI-generated video: "{text_input}"'
+            }
+        }
+        
