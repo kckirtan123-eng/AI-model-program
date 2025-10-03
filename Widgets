@@ -195,3 +195,128 @@ class OutputDisplay(tk.Frame):
         self.text_widget.tag_configure('info', foreground='#3498db')
         self.text_widget.tag_configure('system', foreground='#95a5a6')
     
+    
+    def log(self, message, message_type='info'):
+        """Add a message with colored formatting"""
+        timestamp = self._get_timestamp()
+        self.text_widget.insert(tk.END, f"[{timestamp}] ", 'system')
+        self.text_widget.insert(tk.END, f"{message}\n", message_type)
+        self.text_widget.see(tk.END)
+    
+    def clear(self):
+        """Clear all output"""
+        self.text_widget.delete(1.0, tk.END)
+        self.log("Output cleared", 'system')
+    
+    def _get_timestamp(self):
+        """Get current timestamp"""
+        from datetime import datetime
+        return datetime.now().strftime("%H:%M:%S")
+
+class ImageDisplay(tk.Frame):
+    """Modern image display with placeholder and status"""
+    
+    def __init__(self, master, title="Image Display", width=400, height=250):
+        super().__init__(master)
+        self.configure(relief='sunken', bd=1, bg='#ecf0f1')
+        self.width = width
+        self.height = height
+        
+        # Title
+        title_label = tk.Label(
+            self, 
+            text=title, 
+            font=('Arial', 11, 'bold'),
+            fg='#2c3e50',
+            bg='#ecf0f1',
+            pady=8
+        )
+        title_label.pack()
+        
+        # Image display area
+        self.image_frame = tk.Frame(self, bg='#bdc3c7', width=width, height=height)
+        self.image_frame.pack(padx=10, pady=10)
+        self.image_frame.pack_propagate(False)
+        
+        self.image_label = tk.Label(
+            self.image_frame, 
+            text="🖼️ No Image Loaded",
+            font=('Arial', 10),
+            fg='#7f8c8d',
+            bg='#bdc3c7',
+            compound='top'
+        )
+        self.image_label.pack(expand=True)
+        
+        # Status bar
+        self.status_var = tk.StringVar(value="Ready")
+        status_bar = tk.Label(
+            self,
+            textvariable=self.status_var,
+            font=('Arial', 8),
+            fg='#7f8c8d',
+            bg='#ecf0f1',
+            relief='sunken',
+            bd=1
+        )
+        status_bar.pack(fill='x', side='bottom')
+    
+    def display_image(self, photo_image):
+        """Display a PhotoImage in the widget"""
+        self.image_label.configure(image=photo_image, text="")
+        self.image_label.image = photo_image  # Keep reference
+        self.status_var.set("Image displayed")
+    
+    def clear(self):
+        """Clear the display"""
+        self.image_label.configure(image='', text="🖼️ No Image Loaded")
+        self.status_var.set("Ready")
+
+class ProgressBar(tk.Frame):
+    """Modern progress bar with percentage"""
+    
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+        
+        self.progress_var = tk.DoubleVar()
+        self.status_var = tk.StringVar(value="Ready")
+        
+        # Status label
+        self.status_label = tk.Label(
+            self,
+            textvariable=self.status_var,
+            font=('Arial', 9),
+            fg='#2c3e50'
+        )
+        self.status_label.pack(anchor='w')
+        
+        # Progress bar
+        style = ttk.Style()
+        style.configure("Modern.Horizontal.TProgressbar",
+                       troughcolor='#ecf0f1',
+                       background='#3498db',
+                       thickness=20)
+        
+        self.progress = ttk.Progressbar(
+            self,
+            variable=self.progress_var,
+            style="Modern.Horizontal.TProgressbar",
+            maximum=100
+        )
+        self.progress.pack(fill='x', pady=(2, 0))
+    
+    def update_progress(self, value, status=""):
+        """Update progress bar and status"""
+        self.progress_var.set(value)
+        if status:
+            self.status_var.set(status)
+
+# Decorator function for logging
+def log_execution(func: Callable) -> Callable:
+    """Decorator to log function execution"""
+    def wrapper(*args, **kwargs):
+        print(f"🚀 Executing {func.__name__}")
+        result = func(*args, **kwargs)
+        print(f"✅ Completed {func.__name__}")
+        return result
+    return wrapper
