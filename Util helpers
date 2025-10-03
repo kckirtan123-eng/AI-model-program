@@ -1,0 +1,26 @@
+"""
+Utility functions demonstrating functional programming concepts
+"""
+
+def validate_file_type(filename, allowed_types):
+    """Validate file type using functional programming concepts"""
+    return any(filename.lower().endswith(ext) for ext in allowed_types)
+
+def batch_process(items, process_func):
+    """Process items in batch using higher-order functions"""
+    return list(map(process_func, items))
+
+# List comprehension example
+def filter_successful_results(results):
+    """Filter successful results using list comprehension"""
+    return [result for result in results if result.get('success', False)]
+
+def safe_model_load(model_loader, max_retries=3):
+    """Safely load model with retry logic"""
+    for attempt in range(max_retries):
+        try:
+            return model_loader()
+        except Exception as e:
+            if attempt == max_retries - 1:
+                raise e
+            print(f"Attempt {attempt + 1} failed, retrying...")
