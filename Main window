@@ -1,0 +1,124 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+import sys
+import os
+
+# Add the parent directory to Python path for absolute imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from gui.model_interface import ModelInterface
+
+class MainWindow(tk.Tk):
+    """Main application window for wizard interface
+    
+    def __init__(self):
+        super().__init__()
+        
+        self.title("Advanced AI Model GUI - Wizard Interface")
+        self.geometry("900x700")
+        self.minsize(800, 600)
+        
+        # ENCAPSULATION: protected attributes
+        self._current_model_info = {}
+        self._oop_explanations = {}
+        
+        self._create_menu()
+        self._create_main_interface()
+        self._create_explanation_sections()
+    
+    def _create_menu(self):
+        """Create main menu bar"""
+        menubar = tk.Menu(self)
+        
+        # File menu
+        file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label="🔄 Restart Wizard", command=self.restart_wizard)
+        file_menu.add_separator()
+        file_menu.add_command(label="🚪 Exit", command=self.quit)
+        menubar.add_cascade(label="File", menu=file_menu)
+        
+        # Help menu
+        help_menu = tk.Menu(menubar, tearoff=0)
+        help_menu.add_command(label="ℹ️ About", command=self.show_about)
+        help_menu.add_command(label="📚 OOP Concepts", command=self.show_oop_explanations)
+        menubar.add_cascade(label="Help", menu=help_menu)
+        
+        self.config(menu=menubar)
+    
+    def _create_main_interface(self):
+        """Create main interface components"""
+        # Main container
+        main_container = ttk.Frame(self)
+        main_container.pack(fill='both', expand=True, padx=10, pady=10)
+        
+        # Title
+        title_frame = ttk.Frame(main_container)
+        title_frame.pack(fill='x', pady=(0, 10))
+        
+        title_label = tk.Label(
+            title_frame, 
+            text="🤖 AI Model Wizard - HD Implementation", 
+            font=('Arial', 16, 'bold'),
+            fg='darkblue'
+        )
+        title_label.pack()
+        
+        subtitle_label = tk.Label(
+            title_frame,
+            text="Step-by-Step Guide to Advanced AI Model Processing",
+            font=('Arial', 10),
+            fg='gray'
+        )
+        subtitle_label.pack()
+        
+        # Model interface - This is the wizard
+        self.model_interface = ModelInterface(main_container, self.update_explanations_callback)
+        self.model_interface.pack(fill='both', expand=True)
+    
+    def _create_explanation_sections(self):
+        """Create explanation sections"""
+        explanation_frame = ttk.LabelFrame(self, text="Model Information & OOP Concepts Explanation")
+        explanation_frame.pack(fill='x', padx=10, pady=10)
+        
+        # Create notebook for tabs
+        notebook = ttk.Notebook(explanation_frame)
+        notebook.pack(fill='both', expand=True, padx=5, pady=5)
+        
+        # Model info tab
+        model_info_frame = ttk.Frame(notebook)
+        notebook.add(model_info_frame, text="Model Information")
+        
+        ttk.Label(model_info_frame, text="Selected Model Info:", font=('Arial', 10, 'bold')).pack(anchor='w', pady=5)
+        self.model_info_text = tk.Text(model_info_frame, height=6, width=80, wrap='word')
+        self.model_info_text.pack(fill='both', expand=True, padx=5, pady=5)
+        
+        # OOP explanations tab
+        oop_frame = ttk.Frame(notebook)
+        notebook.add(oop_frame, text="OOP Concepts")
+        
+        ttk.Label(oop_frame, text="OOP Concepts Implementation:", font=('Arial', 10, 'bold')).pack(anchor='w', pady=5)
+        self.oop_text = tk.Text(oop_frame, height=6, width=80, wrap='word')
+        self.oop_text.pack(fill='both', expand=True, padx=5, pady=5)
+        
+        # Add scrollbars
+        for text_widget in [self.model_info_text, self.oop_text]:
+            scrollbar = ttk.Scrollbar(text_widget)
+            scrollbar.pack(side='right', fill='y')
+            text_widget.config(yscrollcommand=scrollbar.set)
+            scrollbar.config(command=text_widget.yview)
+    
+    def restart_wizard(self):
+        """Restart the wizard from step 1"""
+        self.model_interface.show_step(1)
+        self.model_info_text.delete(1.0, tk.END)
+        self.oop_text.delete(1.0, tk.END)
+    
+    def update_explanations_callback(self, explanation_type, data):
+        """Callback for updating explanations"""
+        if explanation_type == "model_info":
+            self._current_model_info = data
+            self._update_model_info_display()
+        elif explanation_type == "oop_explanations":
+            self._oop_explanations = data
+            self._update_oop_explanations()
+    
