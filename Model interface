@@ -1,0 +1,338 @@
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox
+import threading
+import time
+import os
+
+class ModelInterface(tk.Frame):
+    def __init__(self, parent, models_dict):
+        super().__init__(parent)
+        self.parent = parent
+        self.models = models_dict
+        self.current_model = None
+        self.current_step = 1
+        self.file_path = None  # Initialize file_path
+        
+        self.configure(bg='#2b2b2b')
+        self.pack(fill='both', expand=True)
+        
+        self.setup_ui()
+        
+    def setup_ui(self):
+        """Setup the main interface layout"""
+        print("🔧 Setting up UI...")
+        
+        # Main container
+        self.main_container = tk.Frame(self, bg='#2b2b2b')
+        self.main_container.pack(fill='both', expand=True, padx=20, pady=20)
+        
+        # Title
+        self.title_label = tk.Label(
+            self.main_container,
+            text="🎯 AI MODEL WIZARD",
+            font=('Arial', 18, 'bold'),
+            fg='white',
+            bg='#007acc',
+            pady=15
+        )
+        self.title_label.pack(fill='x', pady=(0, 20))
+        
+        # Model selection
+        self.setup_model_selection()
+        
+        # Create steps container
+        self.steps_container = tk.Frame(self.main_container, bg='#2b2b2b')
+        self.steps_container.pack(fill='both', expand=True, pady=10)
+        
+        # Create all steps
+        self.create_step1()
+        self.create_step2() 
+        self.create_step3()
+        self.create_step4()
+        
+        # Show first step
+        self.show_step(1)
+        
+    def setup_model_selection(self):
+        """Setup model selection area"""
+        model_frame = tk.Frame(self.main_container, bg='#3c3c3c', relief='raised', bd=1)
+        model_frame.pack(fill='x', pady=10, padx=10)
+        
+        tk.Label(
+            model_frame,
+            text="SELECT MODEL:",
+            font=('Arial', 12, 'bold'),
+            fg='white',
+            bg='#3c3c3c'
+        ).pack(side='left', padx=10, pady=10)
+        
+        # Model dropdown
+        self.model_var = tk.StringVar()
+        self.model_dropdown = ttk.Combobox(
+            model_frame,
+            textvariable=self.model_var,
+            values=list(self.models.keys()),
+            state='readonly',
+            width=20,
+            font=('Arial', 10)
+        )
+        self.model_dropdown.pack(side='left', padx=10, pady=10)
+        self.model_dropdown.bind('<<ComboboxSelected>>', self.on_model_selected)
+        
+        # Status label
+        self.model_status = tk.Label(
+            model_frame,
+            text="Please select a model to begin",
+            font=('Arial', 10),
+            fg='#cccccc',
+            bg='#3c3c3c'
+        )
+        self.model_status.pack(side='left', padx=20, pady=10)
+        
+    def create_step1(self):
+        """Step 1: Model Selection Confirmation"""
+        self.step1 = tk.Frame(self.steps_container, bg='#2b2b2b')
+        
+        content = tk.Frame(self.step1, bg='#2b2b2b')
+        content.pack(fill='both', expand=True, padx=20, pady=20)
+        
+        tk.Label(
+            content,
+            text="STEP 1: MODEL SELECTION",
+            font=('Arial', 14, 'bold'),
+            fg='white',
+            bg='#2b2b2b'
+        ).pack(pady=(0, 10))
+        
+        tk.Label(
+            content,
+            text="Please select an AI model from the dropdown above to continue.",
+            font=('Arial', 11),
+            fg='#cccccc',
+            bg='#2b2b2b'
+        ).pack(pady=5)
+        
+        # Navigation
+        nav_frame = tk.Frame(content, bg='#2b2b2b')
+        nav_frame.pack(pady=20)
+        
+        self.step1_next = tk.Button(
+            nav_frame,
+            text="NEXT →",
+            command=lambda: self.show_step(2),
+            bg='#007acc',
+            fg='white',
+            font=('Arial', 11, 'bold'),
+            padx=30,
+            pady=10,
+            state='disabled'
+        )
+        self.step1_next.pack()
+        
+    def create_step2(self):
+        """Step 2: Model Initialization"""
+        self.step2 = tk.Frame(self.steps_container, bg='#2b2b2b')
+        
+        content = tk.Frame(self.step2, bg='#2b2b2b')
+        content.pack(fill='both', expand=True, padx=20, pady=20)
+        
+        tk.Label(
+            content,
+            text="STEP 2: MODEL INITIALIZATION",
+            font=('Arial', 14, 'bold'),
+            fg='white',
+            bg='#2b2b2b'
+        ).pack(pady=(0, 10))
+        
+        # Status
+        self.init_status = tk.Label(
+            content,
+            text="Click 'Initialize Model' to load the selected AI model",
+            font=('Arial', 11),
+            fg='#cccccc',
+            bg='#2b2b2b'
+        )
+        self.init_status.pack(pady=10)
+        
+        # Progress bar
+        self.progress = ttk.Progressbar(
+            content,
+            mode='indeterminate',
+            length=400
+        )
+        self.progress.pack(pady=10)
+        
+        # Navigation
+        nav_frame = tk.Frame(content, bg='#2b2b2b')
+        nav_frame.pack(pady=20)
+        
+        tk.Button(
+            nav_frame,
+            text="← BACK",
+            command=lambda: self.show_step(1),
+            bg='#555555',
+            fg='white',
+            font=('Arial', 10),
+            padx=20,
+            pady=5
+        ).pack(side='left', padx=5)
+        
+        self.init_btn = tk.Button(
+            nav_frame,
+            text="INITIALIZE MODEL",
+            command=self.initialize_model,
+            bg='#28a745',
+            fg='white',
+            font=('Arial', 10, 'bold'),
+            padx=20,
+            pady=5
+        )
+        self.init_btn.pack(side='left', padx=5)
+        
+        self.step2_next = tk.Button(
+            nav_frame,
+            text="NEXT →",
+            command=lambda: self.show_step(3),
+            bg='#555555',
+            fg='white',
+            font=('Arial', 10),
+            padx=20,
+            pady=5,
+            state='disabled'
+        )
+        self.step2_next.pack(side='left', padx=5)
+        
+    def create_step3(self):
+        """Step 3: Input Selection"""
+        self.step3 = tk.Frame(self.steps_container, bg='#2b2b2b')
+        
+        content = tk.Frame(self.step3, bg='#2b2b2b')
+        content.pack(fill='both', expand=True, padx=20, pady=20)
+        
+        tk.Label(
+            content,
+            text="STEP 3: PROVIDE INPUT",
+            font=('Arial', 14, 'bold'),
+            fg='white',
+            bg='#2b2b2b'
+        ).pack(pady=(0, 10))
+        
+        # Input area will be populated based on model type
+        self.input_area = tk.Frame(content, bg='#3c3c3c', height=200)
+        self.input_area.pack(fill='both', expand=True, pady=10)
+        self.input_area.pack_propagate(False)  # Prevent shrinking
+        
+        # Default message
+        self.input_placeholder = tk.Label(
+            self.input_area,
+            text="Please complete Step 2 first",
+            font=('Arial', 11),
+            fg='#888888',
+            bg='#3c3c3c'
+        )
+        self.input_placeholder.pack(expand=True)
+        
+        # Navigation
+        nav_frame = tk.Frame(content, bg='#2b2b2b')
+        nav_frame.pack(pady=20)
+        
+        tk.Button(
+            nav_frame,
+            text="← BACK",
+            command=lambda: self.show_step(2),
+            bg='#555555',
+            fg='white',
+            font=('Arial', 10),
+            padx=20,
+            pady=5
+        ).pack(side='left', padx=5)
+        
+        self.step3_next = tk.Button(
+            nav_frame,
+            text="NEXT →",
+            command=lambda: self.show_step(4),
+            bg='#555555',
+            fg='white',
+            font=('Arial', 10),
+            padx=20,
+            pady=5,
+            state='disabled'
+        )
+        self.step3_next.pack(side='left', padx=5)
+        
+    def create_step4(self):
+        """Step 4: Processing"""
+        self.step4 = tk.Frame(self.steps_container, bg='#2b2b2b')
+        
+        content = tk.Frame(self.step4, bg='#2b2b2b')
+        content.pack(fill='both', expand=True, padx=20, pady=20)
+        
+        tk.Label(
+            content,
+            text="STEP 4: PROCESSING",
+            font=('Arial', 14, 'bold'),
+            fg='white',
+            bg='#2b2b2b'
+        ).pack(pady=(0, 10))
+        
+        # Status
+        self.process_status = tk.Label(
+            content,
+            text="Ready to process your input",
+            font=('Arial', 11),
+            fg='#cccccc',
+            bg='#2b2b2b'
+        )
+        self.process_status.pack(pady=10)
+        
+        # Progress bar
+        self.process_progress = ttk.Progressbar(
+            content,
+            mode='indeterminate',
+            length=400
+        )
+        self.process_progress.pack(pady=10)
+        
+        # Results area
+        self.results_area = tk.Frame(content, bg='#3c3c3c', height=150)
+        self.results_area.pack(fill='both', expand=True, pady=10)
+        self.results_area.pack_propagate(False)
+        
+        # Navigation
+        nav_frame = tk.Frame(content, bg='#2b2b2b')
+        nav_frame.pack(pady=20)
+        
+        tk.Button(
+            nav_frame,
+            text="← BACK",
+            command=lambda: self.show_step(3),
+            bg='#555555',
+            fg='white',
+            font=('Arial', 10),
+            padx=20,
+            pady=5
+        ).pack(side='left', padx=5)
+        
+        self.process_btn = tk.Button(
+            nav_frame,
+            text="START PROCESSING",
+            command=self.start_processing,
+            bg='#28a745',
+            fg='white',
+            font=('Arial', 10, 'bold'),
+            padx=20,
+            pady=5
+        )
+        self.process_btn.pack(side='left', padx=5)
+        
+        tk.Button(
+            nav_frame,
+            text="RESTART",
+            command=self.restart_wizard,
+            bg='#ffc107',
+            fg='black',
+            font=('Arial', 10),
+            padx=20,
+            pady=5
+        ).pack(side='left', padx=5)
+        
