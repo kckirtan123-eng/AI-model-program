@@ -1,0 +1,92 @@
+from abc import ABC, abstractmethod
+import threading
+import time
+import warnings
+warnings.filterwarnings("ignore")
+
+class BaseAIModel(ABC):
+    """Base class demonstrating ABSTRACTION and INHERITANCE"""
+    
+    def __init__(self, model_name: str, task: str):
+        self.model_name = model_name
+        self.task = task
+        self.pipeline = None
+        self._is_loaded = False
+        self._is_loading = False  # Track loading state
+        self._load_thread = None  # Thread for loading
+        
+    def load_model(self, callback=None):    
+        """Load model in background thread"""
+        if self._is_loading or self._is_loaded:
+            return True
+            
+        self._is_loading = True
+        
+        def load_in_thread():
+            try:
+                print(f"Loading {self.model_name} in background...")
+                self._initialize_pipeline()
+                self._is_loaded = True
+                self._is_loading = False
+                print(f"✓ {self.model_name} loaded successfully!")
+                if callback:
+                    callback(True, f"✅ {self.model_name} loaded successfully!")
+            except Exception as e:
+                self._is_loading = False
+                print(f"✗ Error loading model {self.model_name}: {e}")
+                if callback:
+                    callback(False, f"❌ Failed to load {self.model_name}: {e}")
+        
+        self._load_thread = threading.Thread(target=load_in_thread)
+        self._load_thread.daemon = True  # Thread will close when main program closes
+        self._load_thread.start()
+        return True
+    
+    @abstractmethod
+    def _initialize_pipeline(self):
+        """Abstract method that must be implemented by subclasses - ABSTRACTION"""
+        pass
+    
+    def process_input(self, input_data, callback=None):
+        """Process input in background thread - POLYMORPHISM"""
+        if not self._is_loaded and not self._is_loading:
+            raise ValueError("Model not loaded. Call load_model() first.")
+        
+        def process_in_thread():
+            try:
+                # Simulate processing time for realism
+                time.sleep(1)
+                result = self._process_input_impl(input_data)
+                if callback:
+                    callback(True, result, "Processing completed successfully!")
+            except Exception as e:
+                if callback:
+                    callback(False, None, f"Processing failed: {e}")
+        
+        thread = threading.Thread(target=process_in_thread)
+        thread.daemon = True
+        thread.start()
+        return True
+    
+    @abstractmethod
+    def _process_input_impl(self, input_data):
+        """Actual implementation of processing - to be overridden by subclasses"""
+        pass
+    
+    def get_model_info(self):
+        """Get model information - will be overridden by subclasses - METHOD OVERRIDING"""
+        status = "Ready" if self._is_loaded else "Loading..." if self._is_loading else "Not Loaded"
+        return {
+            "name": self.model_name,
+            "task": self.task,
+            "status": status,
+            "threading": "Enabled"
+        }
+    
+    def _validate_input(self, input_data):
+        """ENCAPSULATION: protected method for input validation"""
+        if not self._is_loaded and not self._is_loading:
+            raise ValueError("Model not loaded. Call load_model() first.")
+        if not input_data or (isinstance(input_data, str) and not input_data.strip()):
+            raise ValueError("Input data cannot be empty.")
+        return True
