@@ -121,4 +121,89 @@ class MainWindow(tk.Tk):
         elif explanation_type == "oop_explanations":
             self._oop_explanations = data
             self._update_oop_explanations()
+     def _update_model_info_display(self):
+        """Update model information display"""
+        self.model_info_text.delete(1.0, tk.END)
+        if self._current_model_info:
+            for key, value in self._current_model_info.items():
+                self.model_info_text.insert(tk.END, f"• {key.replace('_', ' ').title()}: {value}\n")
+        else:
+            self.model_info_text.insert(tk.END, "No model selected. Please complete Step 1 of the wizard.")
     
+    def _update_oop_explanations(self):
+        """Update OOP concepts explanations"""
+        self.oop_text.delete(1.0, tk.END)
+        if self._oop_explanations:
+            for concept, explanation in self._oop_explanations.items():
+                self.oop_text.insert(tk.END, f"• {concept.replace('_', ' ').title()}:\n  {explanation}\n\n")
+        else:
+            self.oop_text.insert(tk.END, "Complete the wizard steps to see OOP concept explanations.")
+    
+    def show_about(self):
+        """Show about information"""
+        about_text = """🤖 Advanced AI Model GUI - Wizard Interface
+
+🌟 Features:
+• Step-by-Step Wizard Interface
+• Two Complex AI Models
+  - Text-to-Video HD Generator
+  - Image-to-3D Pro Reconstruction
+
+⚡ OOP Concepts Demonstrated:
+  - Wizard Pattern Implementation
+  - State Management
+  - Dynamic Interface Rendering
+  - Conditional UI Logic
+  - Progressive Disclosure
+
+🎯 Professional Features:
+• Background Threading
+• Real-time Progress Tracking
+• Input Validation
+• Professional UI/UX Design
+
+📁 GitHub: https://github.com/your-username/assignment3-ai-gui
+
+🏆 Designed for HD Grade Achievement"""
+        
+        messagebox.showinfo("About AI Model Wizard", about_text)
+    
+    def show_oop_explanations(self):
+        """Show detailed OOP explanations"""
+        explanations = """
+🎯 WIZARD PATTERN & OOP CONCEPTS:
+
+🔹 WIZARD PATTERN:
+• Step-by-step user guidance through complex workflows
+• State management tracking current progress
+• Validation between step transitions
+• Progressive disclosure of complexity
+
+🔹 STATE MANAGEMENT:
+• Track current step and user selections
+• Validate transitions between steps
+• Maintain model state across steps
+• Handle back/next navigation logic
+
+🔹 DYNAMIC INTERFACE:
+• Content changes based on current step
+• Conditional rendering based on model type
+• Adaptive UI components
+• Context-sensitive help and guidance
+
+🔹 ENCAPSULATION:
+• Protected state variables for step tracking
+• Internal validation methods
+• Controlled access to wizard state
+
+🔹 POLYMORPHISM:
+• Different input handling for different model types
+• Same interface, different implementations
+• Runtime method resolution based on model selection
+
+🔹 COMPOSITION:
+• Wizard composes multiple step components
+• Modular step implementations
+• Reusable UI components"""
+        
+        messagebox.showinfo("OOP Concepts - Wizard Pattern", explanations)
