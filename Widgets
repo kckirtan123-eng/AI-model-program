@@ -44,3 +44,154 @@ class ModernButton(tk.Button):
     def on_leave(self, event):
         self.configure(bg=self.original_bg)
     
+    
+    def add_loading_decorator(self, func: Callable) -> Callable:
+        """Decorator to add loading animation to button clicks"""
+        def wrapper():
+            original_text = self['text']
+            self['text'] = "⏳ Processing..."
+            self['state'] = 'disabled'
+            self['bg'] = '#95a5a6'
+            
+            try:
+                result = func()
+            except Exception as e:
+                result = f"Error: {e}"
+            finally:
+                self['text'] = original_text
+                self['state'] = 'normal'
+                self['bg'] = self.original_bg
+            
+            return result
+        return wrapper
+
+class CardFrame(ttk.Frame):
+    """Modern card-style frame with shadow effect"""
+    
+    def __init__(self, master=None, title="", **kwargs):
+        super().__init__(master, **kwargs)
+        self.configure(relief='raised', borderwidth=1)
+        
+        if title:
+            title_frame = ttk.Frame(self)
+            title_frame.pack(fill='x', padx=10, pady=(10, 5))
+            
+            title_label = tk.Label(
+                title_frame, 
+                text=title, 
+                font=('Arial', 12, 'bold'),
+                fg='#2c3e50',
+                bg=self.cget('background')
+            )
+            title_label.pack(anchor='w')
+            
+            separator = ttk.Separator(self, orient='horizontal')
+            separator.pack(fill='x', padx=10, pady=5)
+
+class ModernToolTip:
+    """Modern tooltip with better styling"""
+    
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tooltip = None
+        self.widget.bind("<Enter>", self.show_tooltip)
+        self.widget.bind("<Leave>", self.hide_tooltip)
+    
+    def show_tooltip(self, event=None):
+        """Show modern tooltip on hover"""
+        if self.tooltip:
+            return
+            
+        x, y, _, _ = self.widget.bbox("insert")
+        x += self.widget.winfo_rootx() + 25
+        y += self.widget.winfo_rooty() + 25
+        
+        self.tooltip = tk.Toplevel(self.widget)
+        self.tooltip.wm_overrideredirect(True)
+        self.tooltip.wm_geometry(f"+{x}+{y}")
+        self.tooltip.configure(bg='#34495e', relief='solid', borderwidth=1)
+        
+        label = tk.Label(
+            self.tooltip, 
+            text=self.text, 
+            bg='#34495e',
+            fg='white',
+            font=('Arial', 8),
+            padx=8,
+            pady=4
+        )
+        label.pack()
+    
+    def hide_tooltip(self, event=None):
+        """Hide tooltip"""
+        if self.tooltip:
+            self.tooltip.destroy()
+            self.tooltip = None
+
+class OutputDisplay(tk.Frame):
+    """Modern output display with syntax highlighting-like appearance"""
+    
+    def __init__(self, master, title="Output", height=12, **kwargs):
+        super().__init__(master, **kwargs)
+        self.configure(bg='#2c3e50', relief='sunken', bd=1)
+        
+        # Header
+        header_frame = tk.Frame(self, bg='#34495e')
+        header_frame.pack(fill='x', padx=1, pady=(1, 0))
+        
+        title_label = tk.Label(
+            header_frame,
+            text=title,
+            font=('Arial', 10, 'bold'),
+            fg='#ecf0f1',
+            bg='#34495e',
+            padx=10,
+            pady=5
+        )
+        title_label.pack(side='left')
+        
+        # Clear button
+        clear_btn = ModernButton(
+            header_frame,
+            text="🗑️",
+            command=self.clear,
+            bg='#e74c3c',
+            font=('Arial', 8),
+            padx=5,
+            pady=2
+        )
+        clear_btn.pack(side='right', padx=5, pady=2)
+        
+        # Text area with scrollbar
+        text_frame = tk.Frame(self, bg='#2c3e50')
+        text_frame.pack(fill='both', expand=True, padx=1, pady=(0, 1))
+        
+        self.text_widget = tk.Text(
+            text_frame,
+            height=height,
+            width=80,
+            bg='#2c3e50',
+            fg='#ecf0f1',
+            font=('Consolas', 9),
+            insertbackground='white',
+            selectbackground='#3498db',
+            relief='flat',
+            padx=10,
+            pady=10,
+            wrap='word'
+        )
+        self.text_widget.pack(side='left', fill='both', expand=True)
+        
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(text_frame, command=self.text_widget.yview)
+        scrollbar.pack(side='right', fill='y')
+        self.text_widget.config(yscrollcommand=scrollbar.set)
+        
+        # Configure tags for different message types
+        self.text_widget.tag_configure('success', foreground='#2ecc71')
+        self.text_widget.tag_configure('error', foreground='#e74c3c')
+        self.text_widget.tag_configure('warning', foreground='#f39c12')
+        self.text_widget.tag_configure('info', foreground='#3498db')
+        self.text_widget.tag_configure('system', foreground='#95a5a6')
+    
