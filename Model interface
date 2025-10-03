@@ -336,3 +336,130 @@ class ModelInterface(tk.Frame):
             pady=5
         ).pack(side='left', padx=5)
         
+ def on_model_selected(self, event):
+        """Handle model selection"""
+        model_name = self.model_var.get()
+        if model_name in self.models:
+            self.current_model = self.models[model_name]()
+            self.model_status.config(text=f"Selected: {model_name}")
+            self.step1_next.config(state='normal')
+            print(f"✅ Model selected: {model_name}")
+            
+    def initialize_model(self):
+        """Initialize the selected model"""
+        if not self.current_model:
+            messagebox.showerror("Error", "Please select a model first")
+            return
+            
+        self.init_btn.config(state='disabled')
+        self.progress.start()
+        self.init_status.config(text="Initializing model...")
+        
+        def init_thread():
+            try:
+                success = self.current_model.initialize()
+                self.after(0, self.on_initialization_complete, success)
+            except Exception as e:
+                self.after(0, self.on_initialization_complete, False, str(e))
+                
+        threading.Thread(target=init_thread, daemon=True).start()
+        
+    def on_initialization_complete(self, success, error_msg=None):
+        """Handle initialization completion"""
+        self.progress.stop()
+        
+        if success:
+            self.init_status.config(text="✅ Model initialized successfully!")
+            self.step2_next.config(state='normal')
+            self.setup_input_interface()
+        else:
+            error_text = f"❌ Initialization failed: {error_msg}" if error_msg else "❌ Initialization failed"
+            self.init_status.config(text=error_text)
+            self.init_btn.config(state='normal')
+            
+    def setup_input_interface(self):
+        """Setup input interface based on model type"""
+        # Clear previous input
+        for widget in self.input_area.winfo_children():
+            widget.destroy()
+            
+        if not self.current_model:
+            return
+            
+        model_type = self.current_model.get_model_type()
+        
+        if model_type == "text-to-video":
+            self.setup_text_input()
+        elif model_type == "image-to-3d":
+            self.setup_file_input()
+        else:
+            self.setup_text_input()
+            
+    def setup_text_input(self):
+        """Setup text input interface"""
+        tk.Label(
+            self.input_area,
+            text="Enter your text prompt:",
+            font=('Arial', 11),
+            fg='white',
+            bg='#3c3c3c'
+        ).pack(anchor='w', pady=(10, 5), padx=10)
+        
+        self.text_input = tk.Text(
+            self.input_area,
+            height=8,
+            bg='#2b2b2b',
+            fg='white',
+            insertbackground='white',
+            font=('Arial', 10)
+        )
+        self.text_input.pack(fill='both', expand=True, padx=10, pady=5)
+        
+        # Enable next button when text is entered
+        def on_text_change(event):
+            text = self.text_input.get('1.0', 'end-1c').strip()
+            self.step3_next.config(state='normal' if text else 'disabled')
+            
+        self.text_input.bind('<KeyRelease>', on_text_change)
+        
+    def setup_file_input(self):
+        """Setup file input interface"""
+        tk.Label(
+            self.input_area,
+            text="Select an image file:",
+            font=('Arial', 11),
+            fg='white',
+            bg='#3c3c3c'
+        ).pack(anchor='w', pady=(10, 5), padx=10)
+        
+        file_frame = tk.Frame(self.input_area, bg='#3c3c3c')
+        file_frame.pack(fill='x', padx=10, pady=5)
+        
+        self.file_label = tk.Label(
+            file_frame,
+            text="No file selected",
+            font=('Arial', 10),
+            fg='#cccccc',
+            bg='#3c3c3c',
+            wraplength=400
+        )
+        self.file_label.pack(side='left', fill='x', expand=True)
+        
+        tk.Button(
+            file_frame,
+            text="Browse Files",
+            command=self.browse_file,
+            bg='#007acc',
+            fg='white',
+            font=('Arial', 10)
+        ).pack(side='right')
+        
+        # Instructions
+        tk.Label(
+            self.input_area,
+            text="Supported formats: PNG, JPG, JPEG, BMP",
+            font=('Arial', 9),
+            fg='#888888',
+            bg='#3c3c3c'
+        ).pack(anchor='w', padx=10, pady=(0, 10))
+        
